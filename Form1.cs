@@ -1,17 +1,19 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.Drawing;
+using System.Collections;
+using System.ComponentModel;
+using System.Windows.Forms;
+using System.Data;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
-using System.Collections;
-
-
+using server;
 
 namespace server
 {
-    public class Server
+    delegate void msg_Handle(string msg);
+
+    public partial class Form1 : Form
     {
         //clients数组保存当前在线用户的Client对象
         internal static Hashtable clients = new Hashtable();
@@ -25,57 +27,18 @@ namespace server
         //开始服务的标志
         internal static bool SocketServiceFlag = false;
 
-        private string getIPAddress()
+        private string[] Username=new string[100];
+        //private int Count=0;
+
+        public Form1()
         {
-            // 获得本机局域网IP地址
-            string ipAddress = "";
-            IPAddress[] AddressList = Dns.GetHostEntry(Dns.GetHostName()).AddressList;
-            if (AddressList.Length < 1)
-            {
-                return "";
-            }
-            foreach (IPAddress ip in AddressList)
-            {
-                if (ip.AddressFamily.ToString() == "InterNetwork")
-                    ipAddress = ip.ToString();
-                else ipAddress = "";
-            }
-            return ipAddress;
+            InitializeComponent();
         }
 
-        private int getValidPort(string port)
+        //当单击“开始”按钮时，便开始监听指定的Socket端口
+        private void btnSocketStart_Click(object sender, EventArgs e)
         {
-            int lport;
-
-            //测试端口号是否有效
-            try
-            {
-                //是否为空
-                if (port == "")
-                {
-                    throw new ArgumentException(
-                        "端口号为空，不能启动服务器");
-                }
-                lport = System.Convert.ToInt32(port);
-            }
-            catch (Exception e)
-            {
-                //ArgumentException, 
-                //FormatException, 
-                //OverflowException
-                Console.WriteLine("无效的端口号：" + e.ToString());
-                return -1;
-            }
-            return lport;
-        }
-
-        private void SocketStart()
-        {
-            int port = getValidPort(port);
-            if (port < 0)
-            {
-                return;
-            }
+            int port = 1234;
 
             string ip = "127.0.0.1";
             try
@@ -85,19 +48,19 @@ namespace server
                 listener = new TcpListener(ipAdd, port);
                 //开始监听服务器端口
                 listener.Start();
-                Console.WriteLine("Socket服务器已经启动，正在监听" +
-                    ip + " 端口号：" + port + "\n"); 
-
+                this.rtbSocketMsg.AppendText("Socket服务器已经启动，正在监听" +
+                    ip + " 端口号：" + port + "\n");
                 //启动一个新的线程，执行方法this.StartSocketListen，
                 //以便在一个独立的线程中执行确认与客户端Socket连接的操作
-                Server.SocketServiceFlag = true;
+                Form1.SocketServiceFlag = true;
                 Thread thread = new Thread(new ThreadStart(this.StartSocketListen));
                 thread.Start();
-                
+                this.btnSocketStart.Enabled = false;
+                this.btnSocketStop.Enabled = true;
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.Message.ToString() + "\n");
+                this.rtbSocketMsg.AppendText(ex.Message.ToString() + "\n");
             }
         }
 
@@ -105,7 +68,7 @@ namespace server
         //并且立刻启动一个新的线程来处理和该客户端的信息交互。
         private void StartSocketListen()
         {
-            while (Server.SocketServiceFlag)
+            while (Form1.SocketServiceFlag)
             {
                 try
                 {
@@ -115,11 +78,11 @@ namespace server
                         Socket socket = listener.AcceptSocket();
                         if (clients.Count >= MAX_NUM)
                         {
-                            Console.WriteLine("已经达到了最大连接数：" +
-                                MAX_NUM + "，拒绝新的连接\n");
-                         
-                            //this.rtbSocketMsg.AppendText("已经达到了最大连接数：" + 
-                            //	MAX_NUM + "，拒绝新的连接\n");
+                            //msg_Handle msg_Handle1 = new msg_Handle(this.rtbSocketMsg.AppendText);
+                            //this.rtbSocketMsg.Invoke(msg_Handle1, new object[]{"已经达到了最大连接数：" + 
+                            //    MAX_NUM + "，拒绝新的连接\n"});
+                            ////this.rtbSocketMsg.AppendText("已经达到了最大连接数：" + 
+                            ////	MAX_NUM + "，拒绝新的连接\n");
                             socket.Close();
                         }
                         else
@@ -136,38 +99,70 @@ namespace server
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine(ex.Message.ToString() + "\n");
+                    msg_Handle msg_Handle2 = new msg_Handle(this.rtbSocketMsg.AppendText);
+                    this.rtbSocketMsg.Invoke(msg_Handle2, new object[] { ex.Message.ToString() + "\n" });
                 }
             }
         }
 
-        //public void addUser(string username)
-        //{
-        //    msg_Handle msg = new msg_Handle(this.rtbSocketMsg.AppendText);
-
-
-        //    if (this.rtbSocketMsg.InvokeRequired)
-        //        this.rtbSocketMsg.Invoke(msg, new object[] { username + " 已经加入\n" });
-        //    else
-        //        this.rtbSocketMsg.AppendText(username + " 已经加入\n");//追加文本
-        //    //将刚连接的用户名加入到当前在线用户列表中
-        //    if (this.lbSocketClients.InvokeRequired)
-        //        this.lbSocketClients.Invoke(new add_Handle(this.lbSocketClients.Items.Add), new object[] { username });
-        //    else
-        //        this.lbSocketClients.Items.Add(username);
-        //    if (this.tbSocketClientsNum.InvokeRequired)
-        //        this.tbSocketClientsNum.Invoke(new msg_Handle(this.func), System.Convert.ToString(clients.Count));
-        //    else
-        //        this.tbSocketClientsNum.Text = System.Convert.ToString(clients.Count);
-
-        //}
-
-        class Program
+        private void btnSocketStop_Click(object sender, System.EventArgs e)
         {
-            static void Main(string[] args)
-            {
-            }
+            this.rtbSocketMsg.AppendText("Socket服务器已经关闭");
+            Form1.SocketServiceFlag = false;
+            this.btnSocketStart.Enabled = true;
+            this.btnSocketStop.Enabled = false;
+            
         }
+
+        public void addUser(string username)
+        {
+            msg_Handle msg = new msg_Handle(this.rtbSocketMsg.AppendText);
+
+
+            if (this.rtbSocketMsg.InvokeRequired)
+                this.rtbSocketMsg.Invoke(msg, new object[] { username + " 已经加入\n" });
+            else
+                this.rtbSocketMsg.AppendText(username + " 已经加入\n");//追加文本
+            //将刚连接的用户名加入到当前在线用户列表中
+            Username[clients.Count]=username;
+            //Count++;
+
+        }
+
+        public void removeUser(string username)
+        {
+            if (this.rtbSocketMsg.InvokeRequired)
+                this.rtbSocketMsg.Invoke(new msg_Handle(this.rtbSocketMsg.AppendText), new object[] { username + " 已经离开\n" });
+            else
+                this.rtbSocketMsg.AppendText(username + " 已经离开\n");
+            //将刚连接的用户名加入到当前在线用户列表中
+            //Count--;
+        }
+
+        public string GetUserList()
+        {
+            string Rtn = "";
+            for (int i = 0; i <clients.Count; i++)
+            {
+                Rtn +=Username[i+1].ToString()+ "|";
+            }
+            return Rtn;
+        }
+
+        public void updateUI(string msg)
+        {
+            if (this.rtbSocketMsg.InvokeRequired)
+                this.rtbSocketMsg.Invoke(new msg_Handle(this.rtbSocketMsg.AppendText), new object[] { msg + "\n" });
+            else
+                this.rtbSocketMsg.AppendText(msg + "\n");
+        }
+
+        private void Form1_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            Form1.SocketServiceFlag = false;
+        }
+
+
     }
 
     public class Client
@@ -175,16 +170,13 @@ namespace server
         private string name;
         private Socket currentSocket = null;
         private string ipAddress;
-        private Server server;
-
-
-
+        private Form1 server;
 
         //保留当前连接的状态：
         //closed --> connected --> closed
         private string state = "closed";
 
-        public Client(Server server, Socket clientSocket)
+        public Client(Form1 server, Socket clientSocket)
         {
             this.server = server;
             this.currentSocket = clientSocket;
@@ -226,24 +218,20 @@ namespace server
             return ((IPEndPoint)currentSocket.RemoteEndPoint).
                     Address.ToString();
         }
-        //创建完成
 
         //ServiceClient方法用于和客户端进行数据通信，包括接收客户端的请求，
         //根据不同的请求命令，执行相应的操作，并将处理结果返回到客户端
         public void ServiceClient()
         {
             string[] tokens = null;
-            byte[] buff = new byte[1024];
+            byte[] buff = new byte[1024];//可以改动
             bool keepConnect = true;
 
-            /*******************代理***********************/
-            //msg_Handle msg_Handle = new msg_Handle(this.server.updateUI);
-
-            /*******************代理***********************/
+            msg_Handle msg_Handle = new msg_Handle(this.server.updateUI);
 
             //用循环来不断地与客户端进行交互，直到客户端发出“EXIT”命令，
             //将keepConnect置为false，退出循环，关闭连接，并中止当前线程
-            while (keepConnect && Server.SocketServiceFlag)
+            while (keepConnect && Form1.SocketServiceFlag)
             {
                 tokens = null;
                 try
@@ -262,8 +250,7 @@ namespace server
                                                          buff, 0, len);
 
                     //server.updateUI(clientCommand);
-                    Console.WriteLine(clientCommand);
-                    
+                    this.server.rtbSocketMsg.Invoke(msg_Handle, new object[] { clientCommand });
                     // server.rtbSocketMsg.Invoke(new msg_Handle(this.server.updateUI), new object[] { clientCommand });
                     // msg_Handle msg_Handle=ne
                     //tokens[0]中保存了命令标志符（CONN、CHAT、PRIV、LIST或EXIT）
@@ -278,7 +265,7 @@ namespace server
                 catch (Exception e)
                 {
                     //server.updateUI("发生异常："+ e.ToString());
-                    Console.WriteLine("发生异常：" + e.ToString());
+                    this.server.rtbSocketMsg.Invoke(msg_Handle, new object[] { "发生异常：" + e.ToString() });
                 }
 
 
@@ -288,29 +275,26 @@ namespace server
                     //命令标志符（CONN）|发送者的用户名|，
                     //tokens[1]中保存了发送者的用户名
                     this.name = tokens[1];
-                    if (Server.clients.Contains(this.name))
+                    //更新界面
+                    if (Form1.clients.Contains(this.name))
                     {
-                        //string msg=CreateFrame("CONN", tokens[1]).ToString();
-                        //SendToClient(this,"CONN", msg);
                         SendToClient(this, "ERR|User " + this.name + " 已经存在");
 
                     }
                     else
                     {
                         Hashtable syncClients = Hashtable.Synchronized(
-                            Server.clients);
+                            Form1.clients);
                         syncClients.Add(this.name, this);
 
-                        //更新界面
-
-                        //server.addUser(this.name);
+                        server.addUser(this.name);
                         //server.rtbSocketMsg.Invoke(new msg_Handle(this.server.updateUI), new object[] { "发生异常：" + e.ToString() });
 
 
                         //对每一个当前在线的用户发送JOIN消息命令和LIST消息命令，
                         //以此来更新客户端的当前在线用户列表
                         System.Collections.IEnumerator myEnumerator =
-                            Server.clients.Values.GetEnumerator();
+                               Form1.clients.Values.GetEnumerator();
                         while (myEnumerator.MoveNext())
                         {
                             Client client = (Client)myEnumerator.Current;
@@ -320,6 +304,7 @@ namespace server
                             SendToClient(client, "JOIN|" + tokens[1] + "|");
                             Thread.Sleep(100);
                         }
+
                         //更新状态
                         state = "connected";
                         //SendToClient(this, "ok");	
@@ -330,7 +315,7 @@ namespace server
                         string msgUsers = "LIST|" + server.GetUserList();
                         SendToClient(this, msgUsers);
                         /********************************************************/
-                        //server.updateUI(msgUsers);
+
                     }
 
                 }
@@ -354,7 +339,6 @@ namespace server
                     }
                 }
 
-              
                 else if (tokens[0] == "PRIV")
                 {
                     if (state == "connected")
@@ -372,26 +356,23 @@ namespace server
 
 
                         //仅将信息转发给发送者和接收者
-                        if (Server.clients.Contains(sender))
+                        if (Form1.clients.Contains(sender))
                         {
                             //SendToClient(
-                            //        (Client)Server.clients[sender], msg);
+                            //        (Client)ClientSeverForm.clients[sender], msg);
                             SendToClient(
-                                (Client)Server.clients[sender], "单发成功！|");
+                                (Client)Form1.clients[sender], "单发成功！|");
                         }
 
-                        if (Server.clients.Contains(receiver))
+                        if (Form1.clients.Contains(receiver))
                         {
                             SendToClient(
-                                (Client)Server.clients[receiver], msg);
+                                (Client)Form1.clients[receiver], msg);
                         }
-                        //server.updateUI(sender + "to" + receiver);
                     }
                     else
                     {
-                        //send err to server
-                        //string msg = CreateFrame("ERR","state error，Please login first" ).ToString();
-                        //SendToClient(this,"ERR", msg);
+
                         SendToClient(this, "ERR|state error，Please login first");
 
                     }
@@ -400,13 +381,13 @@ namespace server
                 {
                     //此时接收到的命令的格式为：命令标志符（EXIT）|发送者的用户名
                     //向所有当前在线的用户发送该用户已离开的信息
-                    if (Server.clients.Contains(tokens[1]))
+                    if (Form1.clients.Contains(tokens[1]))
                     {
-                        Client client = (Client)Server.clients[tokens[1]];
+                        Client client = (Client)Form1.clients[tokens[1]];
 
                         //将该用户对应的Client对象从clients中删除
                         Hashtable syncClients = Hashtable.Synchronized(
-                            Server.clients);
+                            Form1.clients);
                         syncClients.Remove(client.name);
                         server.removeUser(client.name);
 
@@ -416,7 +397,7 @@ namespace server
                         string message = "QUIT|" + tokens[1];
 
                         System.Collections.IEnumerator myEnumerator =
-                            Server.clients.Values.GetEnumerator();
+                            Form1.clients.Values.GetEnumerator();
                         while (myEnumerator.MoveNext())
                         {
                             Client c = (Client)myEnumerator.Current;
@@ -427,7 +408,7 @@ namespace server
                             // SendToClient(c, "成功退出！");
                         }
 
-                        //server.updateUI(message);
+                        
                     }
 
                     //退出当前线程
@@ -437,7 +418,7 @@ namespace server
             }
         }
 
-        private byte[] CreateFrame(string command, string sender)
+                private byte[] CreateFrame(string command, string sender)
         {
             string frame = command + "|" + sender + "|";
             byte[] outbytes1 = new byte[1024];
@@ -461,7 +442,7 @@ namespace server
 
             //string msg = System.Text.Encoding.Unicode.GetString(CreateFrame(command, msg));
             byte[] message = CreateFrame(command, msg);
-
+            
             client.CurrentSocket.Send(message, message.Length, 0);
         }
 
@@ -473,8 +454,6 @@ namespace server
                     msg.ToCharArray());
             client.CurrentSocket.Send(message, message.Length, 0);
         }
-
-
-        /***********************client类定义结束******************************************/
-    }
-}
+            }
+        }
+ 

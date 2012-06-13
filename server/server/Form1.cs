@@ -38,8 +38,57 @@ namespace server
         //当单击“开始”按钮时，便开始监听指定的Socket端口
         private void btnSocketStart_Click(object sender, EventArgs e)
         {
-            int port = 1234;
+            SocketStart();
+        }
 
+        //private int getValidPort(string port)
+        //{
+        //    int lport;
+
+        //    //测试端口号是否有效
+        //    try
+        //    {
+        //        //是否为空
+        //        if (port == "")
+        //        {
+        //            throw new ArgumentException(
+        //                "端口号为空，不能启动服务器");
+        //        }
+        //        lport = System.Convert.ToInt32(port);
+        //    }
+        //    catch (Exception e)
+        //    {
+        //        //ArgumentException, 
+        //        //FormatException, 
+        //        //OverflowException
+        //        Console.WriteLine("无效的端口号：" + e.ToString());
+        //        this.rtbSocketMsg.AppendText("无效的端口号：" + e.ToString() + "\n");
+        //        return -1;
+        //    }
+        //    return lport;
+        //}
+
+        //private string getIPAddress()
+        //{
+        //    // 获得本机局域网IP地址
+        //    string ipAddress = "";
+        //    IPAddress[] AddressList = Dns.GetHostEntry(Dns.GetHostName()).AddressList;
+        //    if (AddressList.Length < 1)
+        //    {
+        //        return "";
+        //    }
+        //    foreach (IPAddress ip in AddressList)
+        //    {
+        //        if (ip.AddressFamily.ToString() == "InterNetwork")
+        //            ipAddress = ip.ToString();
+        //        else ipAddress = "";
+        //    }
+        //    return ipAddress;
+        //}
+
+        private void SocketStart()
+        {
+            int port = 3333;
             string ip = "127.0.0.1";
             try
             {
@@ -107,11 +156,15 @@ namespace server
 
         private void btnSocketStop_Click(object sender, System.EventArgs e)
         {
+            SocketStop();   
+        }
+
+        private void SocketStop()
+        {
             this.rtbSocketMsg.AppendText("Socket服务器已经关闭");
             Form1.SocketServiceFlag = false;
             this.btnSocketStart.Enabled = true;
             this.btnSocketStop.Enabled = false;
-            
         }
 
         public void addUser(string username)
@@ -162,7 +215,7 @@ namespace server
             Form1.SocketServiceFlag = false;
         }
 
-
+        
     }
 
     public class Client
@@ -417,8 +470,9 @@ namespace server
                 Thread.Sleep(200);
             }
         }
-
-                private byte[] CreateFrame(string command, string sender)
+        
+        //组帧
+        private byte[] CreateFrame(string command, string sender)
         {
             string frame = command + "|" + sender + "|";
             byte[] outbytes1 = new byte[1024];
@@ -445,8 +499,6 @@ namespace server
             
             client.CurrentSocket.Send(message, message.Length, 0);
         }
-
-
 
         private void SendToClient(Client client, string msg)
         {

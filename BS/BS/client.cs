@@ -23,6 +23,9 @@ namespace BS
 
         //与服务器数据交互的流通道
         private NetworkStream Stream;
+        
+        //加buffer供外部数据使用
+        byte[] buffer = new byte[6144];
 
 
         //客户端的状态
@@ -40,6 +43,11 @@ namespace BS
 
         private void btnLogin_Click(object sender, EventArgs e)
         {
+            ClientInitial();
+        }
+
+        private void ClientInitial()
+        {
             if (state == CONNECTED)
             {
                 return;
@@ -51,7 +59,7 @@ namespace BS
                 tcpClient = new TcpClient();
                 //向指定的IP地址的服务器发出连接请求
                 tcpClient.Connect(IPAddress.Parse("127.0.0.1"),
-                    Int32.Parse("1234"));
+                    Int32.Parse("3333"));
                 //获得与服务器数据交互的流通道（NetworkStream)
                 Stream = tcpClient.GetStream();
 
@@ -64,7 +72,7 @@ namespace BS
                 //向服务器发送“CONN”请求命令，
                 //此命令的格式与服务器端的定义的格式一致，
                 //命令格式为：命令标志符（CONN）|发送者的用户名|
-                this.rtbMsg.AppendText("正在连接服务器……\n");/********************************************************/
+                //this.rtbMsg.AppendText("正在连接服务器……\n");/********************************************************/
                 //将字符串转化为字符数组
                 // byte[] outbytes = CreateFrame("CONN");
                 //Stream.Write(outbytes,0,outbytes.Length);
@@ -237,41 +245,6 @@ namespace BS
 
             this.tbCount.Text = msg;
         }
-        public void sendMessage()
-        {
-            try
-            {
-                int clientSelected = lstUsers.SelectedItems.Count;
-                
-                    if (clientSelected != 1)
-                    {
-                        
-                        MessageBox.Show("请在列表中选择一个用户", "提示信息",
-                            MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
-                        return;
-                    }
-                    else
-                    {
-                        //此时命令的格式是：
-                        //命令标志符（CHAT）|发送者的用户名：发送内容|
-                        string receiver = lstUsers.SelectedItem.ToString();
-                       
-                        
-                            this.rtbMsg.AppendText("psyche-->" + receiver + ":a "+ "\n");
-                            // tbSendContent.Text = "";
-                            // tbSendContent.Focus();
-                            //将字符串转化为字符数组
-                            Byte[] outbytes = CreateFrame("PRIV", receiver, "a");
-                            Stream.Write(outbytes, 0, outbytes.Length);
-                         
-                    }
-                }
-            
-            catch
-            {
-                this.rtbMsg.AppendText("网络发生错误");
-            }
-        }
 
         //组帧
         private byte[] CreateFrame(string command)
@@ -279,7 +252,8 @@ namespace BS
             string frame = command + "|psyche|";
             byte[] outbytes1 = new byte[1024];
             byte[] outbytes2 = System.Text.Encoding.Unicode.GetBytes(frame);
-            outbytes2.CopyTo(outbytes1, 0);
+            Buffer.BlockCopy(outbytes2, 0, outbytes1, 0, outbytes2.GetLength(0));
+            //outbytes2.CopyTo(outbytes1, 0);
             return outbytes1;
         }
 
@@ -288,11 +262,17 @@ namespace BS
             string frame = command + "|psyche|" + receiver + "|" + msg + "|";
             byte[] outbytes1 = new byte[1024];
             byte[] outbytes2 = System.Text.Encoding.Unicode.GetBytes(frame);
-            outbytes2.CopyTo(outbytes1, 0);
+            Buffer.BlockCopy(outbytes2, 0, outbytes1, 0, outbytes2.GetLength(0));
+            //outbytes2.CopyTo(outbytes1, 0);
             return outbytes1;
         }
 
         private void btnExit_Click(object sender, EventArgs e)
+        {
+            ClientExit();
+        }
+
+        private void ClientExit()
         {
             if (state == CONNECTED)
             {
@@ -314,29 +294,63 @@ namespace BS
                 Byte[] outbytes = System.Text.Encoding.Unicode.GetBytes(
                     message.ToCharArray());
                 Stream.Write(outbytes, 0, outbytes.Length);
-
-
             }
         }
 
         private void btnAutoSend_Click(object sender, EventArgs e)
         {
             timer.Enabled = true;
-            timer.Elapsed += new System.Timers.ElapsedEventHandler(theout);
+            timer.Elapsed += new System.Timers.ElapsedEventHandler(send);
             timer.AutoReset = true; 
         }
 
-        public void theout(object source, System.Timers.ElapsedEventArgs e)
+        public void send(object source, System.Timers.ElapsedEventArgs e)
         {
             sendMessage();
         }
 
-        
+        public void sendMessage()
+        {
+            try
+            {
+                int clientSelected = lstUsers.SelectedItems.Count;
+
+                if (clientSelected != 1)
+                {
+
+                    MessageBox.Show("请在列表中选择一个用户", "提示信息",
+                        MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                    return;
+                }
+                else
+                {
+                    //此时命令的格式是：
+                    //命令标志符（CHAT）|发送者的用户名：发送内容|
+                    string receiver = lstUsers.SelectedItem.ToString();
+
+
+                    this.rtbMsg.AppendText("psyche-->" + receiver + ":a " + "\n");
+                    // tbSendContent.Text = "";
+                    // tbSendContent.Focus();
+                    //将字符串转化为字符数组
+                    Byte[] outbytes = CreateFrame("PRIV", receiver, "a");
+                    Stream.Write(outbytes, 0, outbytes.Length);
+
+                }
+            }
+
+            catch
+            {
+                this.rtbMsg.AppendText("网络发生错误");
+            }
+        }
 
         private void btnStop_Click(object sender, EventArgs e)
         {
             timer.Enabled = false;
         }
+
+
 
         
     }

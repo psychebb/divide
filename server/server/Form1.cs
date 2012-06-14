@@ -224,6 +224,12 @@ namespace server
         private Socket currentSocket = null;
         private string ipAddress;
         private Form1 server;
+        
+        //缓存供外部数据读取
+        private int getdata;
+        private byte[] buffer = new byte[6144];
+        private int offset;
+
 
         //保留当前连接的状态：
         //closed --> connected --> closed
@@ -298,6 +304,7 @@ namespace server
 
                     //接收数据并存入buff数组中
                     int len = currentSocket.Receive(buff);
+                    //buff.CopyTo(buffer, 0);
                     //将字符数组转化为字符串
                     string clientCommand = System.Text.Encoding.Unicode.GetString(
                                                          buff, 0, len);
@@ -422,6 +429,8 @@ namespace server
                             SendToClient(
                                 (Client)Form1.clients[receiver], msg);
                         }
+
+                        instoredatatobuffer(buff);
                     }
                     else
                     {
@@ -471,6 +480,23 @@ namespace server
             }
         }
         
+        //把数据存入缓存 供外部调用
+        public void instoredatatobuffer(byte[] buf)
+        {
+            if (getdata <= 6)
+            {
+                buf.CopyTo(buffer, offset);
+                offset = offset + 1024;
+                getdata++;
+                
+            }
+            else
+            {
+                getdata = 0;
+                offset = 0;
+            }
+        }
+
         //组帧
         private byte[] CreateFrame(string command, string sender)
         {

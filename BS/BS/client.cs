@@ -13,11 +13,17 @@ namespace BS
     public partial class client : Form
     {
         private int Count;
+        
+
         public System.Timers.Timer timer = new System.Timers.Timer(200);
 
         private delegate void add_Handler(string msg);
         private delegate int listUsersAdd_Handler(object obj);
         private delegate void clear_Handler();
+
+        //clients数组保存当前在线用户
+        internal static Hashtable clients = new Hashtable();
+
         //与服务器的连接
         TcpClient tcpClient;
 
@@ -25,7 +31,9 @@ namespace BS
         private NetworkStream Stream;
         
         //加buffer供外部数据使用
-        byte[] buffer = new byte[6144];
+        private byte[] buffer = new byte[6000];
+        private int getdata;
+        private int index;
 
 
         //客户端的状态
@@ -112,11 +120,14 @@ namespace BS
                     //从流中得到数据，并存入到buff字符数组中
                     len = Stream.Read(buff, 0, buff.Length);//返回已读取的字节数,最大读取buff.length长度的字节数，存在buff里
 
+
                     if (len < 1)//即len为0，可能是读到流的最后，可能是并未到达最后，但已经无数据或不再需要数据（如关闭socket）
                     {
                         Thread.Sleep(200);
                         continue;
                     }
+
+                   
 
                     //将字符数组转化为字符串
                     msg = System.Text.Encoding.Unicode.GetString(buff, 0, len);
@@ -295,6 +306,17 @@ namespace BS
                     message.ToCharArray());
                 Stream.Write(outbytes, 0, outbytes.Length);
             }
+            //if(state==CLOSED)
+            //{
+            //    this.state = CLOSED;
+            //    this.stopFlag = true;
+            //    string message = "EXIT|psyche|";
+
+            //    //将字符串转化为字符数组
+            //    Byte[] outbytes = System.Text.Encoding.Unicode.GetBytes(
+            //        message.ToCharArray());
+            //    Stream.Write(outbytes, 0, outbytes.Length);
+            //}
         }
 
         private void btnAutoSend_Click(object sender, EventArgs e)
@@ -307,10 +329,13 @@ namespace BS
         public void send(object source, System.Timers.ElapsedEventArgs e)
         {
             sendMessage();
+            
+            
         }
 
         public void sendMessage()
         {
+            byte[] data=new byte[1000];
             try
             {
                 int clientSelected = lstUsers.SelectedItems.Count;
@@ -327,9 +352,8 @@ namespace BS
                     //此时命令的格式是：
                     //命令标志符（CHAT）|发送者的用户名：发送内容|
                     string receiver = lstUsers.SelectedItem.ToString();
-
-
-                    this.rtbMsg.AppendText("psyche-->" + receiver + ":a " + "\n");
+                    string mesg=datatosend(data);
+                    this.rtbMsg.AppendText("psyche-->" + receiver + ": "+mesg+ "\n");
                     // tbSendContent.Text = "";
                     // tbSendContent.Focus();
                     //将字符串转化为字符数组
@@ -345,12 +369,27 @@ namespace BS
             }
         }
 
+        //
+        public string datatosend(byte[] buf)
+        {
+            if (getdata <= 6)
+            {
+                Array.Copy(buf, 0, buffer, index, buf.Length);
+                index = index + 1000;
+                getdata++;
+            }
+            else
+            {
+                getdata = 0;
+                index = 0;
+            }
+            return buf.ToString();
+        }
+
         private void btnStop_Click(object sender, EventArgs e)
         {
             timer.Enabled = false;
         }
-
-
 
         
     }

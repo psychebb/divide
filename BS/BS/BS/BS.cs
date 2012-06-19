@@ -10,7 +10,7 @@ using System.Threading;
 
 namespace BS
 {
-    public partial class client : Form
+    public partial class client 
     {
         private int Count;
 
@@ -32,12 +32,20 @@ namespace BS
         private NetworkStream Stream;
 
         //加buffer供外部数据使用
-        public byte[] buffer = new byte[6000];
-        private int getdata;
+        private byte[] buffer = new byte[5400];
+        public void set_buffer(byte[] buffer) 
+        {
+            this.buffer = buffer;
+        }
+        public byte[] get_buffer() 
+        {
+            return this.buffer;
+        }
+        public int getdata;
         private int index;
-        private static string READ = "read";
-        private static string WRITE = "wirte";
-        private string bufferstate = READ;
+        public static string READ = "read";
+        public static string WRITE = "wirte";
+        public string bufferstate = READ;
 
 
         //客户端的状态
@@ -47,9 +55,9 @@ namespace BS
 
         private bool stopFlag;
 
-        public client()
+        public client(string name)
         {
-            InitializeComponent();
+            this.name = name;
 
         }
 
@@ -63,7 +71,7 @@ namespace BS
         //    ClientInitial();
         //}
 
-        private void ClientInitial(string client_name)
+        public void ClientInitial()
         {
             if (state == CONNECTED)
             {
@@ -94,8 +102,8 @@ namespace BS
                 // byte[] outbytes = CreateFrame("CONN");
                 //Stream.Write(outbytes,0,outbytes.Length);
 
-                string cmd = "CONN|" + clients[client_name] + "|";
-                this.rtbMsg.AppendText("正在连接服务器……\n");/********************************************************/
+                string cmd = "CONN|" + this.name + "|";
+                //this.rtbMsg.AppendText("正在连接服务器……\n");/********************************************************/
                 //将字符串转化为字符数组
                 Byte[] outbytes = System.Text.Encoding.Unicode.GetBytes(
                     cmd.ToCharArray());
@@ -104,12 +112,12 @@ namespace BS
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message);
+                //MessageBox.Show(ex.Message);
             }
 
         }
 
-        private void ServerResponse()
+        public void ServerResponse()
         {
             //定义一个byte数组，用于接收从服务器端发送来的数据，
             //每次所能接收的数据包的最大长度为1024个字节
@@ -149,13 +157,13 @@ namespace BS
                     if (tokens[0].ToUpper() == "OK")
                     {
                         //处理响应
-                        this.rtbMsg.Invoke(new add_Handler(this.add), new object[] { "命令执行成功" });
+                        //this.rtbMsg.Invoke(new add_Handler(this.add), new object[] { "命令执行成功" });
                         //add("命令执行成功");
                     }
                     else if (tokens[0].ToUpper() == "ERR")
                     {
                         //命令执行错误
-                        this.rtbMsg.Invoke(new add_Handler(this.add), new object[] { "命令执行错误：" + tokens[1] });
+                        //this.rtbMsg.Invoke(new add_Handler(this.add), new object[] { "命令执行错误：" + tokens[1] });
                         //add("命令执行错误：" + tokens[1]);
                     }
                     else if (tokens[0] == "LIST")
@@ -166,7 +174,7 @@ namespace BS
                         // this.rtbMsg.Invoke(new add_Handler(this.add), new object[] { "获得用户列表" });
                         //更新在线用户列表
                         //lstUsers.Items.Clear();
-                        this.lstUsers.Invoke(new clear_Handler(this.lstUsers.Items.Clear), new object[] { });
+                        //this.lstUsers.Invoke(new clear_Handler(this.lstUsers.Items.Clear), new object[] { });
                         for (int i = 1; i < tokens.Length - 1; i++)
                         {
 
@@ -182,9 +190,9 @@ namespace BS
                         //此时从服务器返回的消息格式：
                         //命令标志符（JOIN）|刚刚登入的用户名|
                         //add(tokens[1]+" "+"已经进入了聊天室");
-                        this.rtbMsg.Invoke(new add_Handler(this.add), new object[] { tokens[1] + " " + "已经进入了通讯程序" });
+                        //this.rtbMsg.Invoke(new add_Handler(this.add), new object[] { tokens[1] + " " + "已经进入了通讯程序" });
                         //this.lstUsers.Items.Add(tokens[1]);
-                        this.lstUsers.Invoke(new listUsersAdd_Handler(this.lstUsers.Items.Add), new object[] { tokens[1] });
+                        //this.lstUsers.Invoke(new listUsersAdd_Handler(this.lstUsers.Items.Add), new object[] { tokens[1] });
                         this.state = CONNECTED;
 
                     }
@@ -213,11 +221,11 @@ namespace BS
                         if (flag == 0)
                         {
                             Count = (Count + 1) % 300;
-                            this.tbCount.Invoke(new add_Handler(this.add1), new object[] { Convert.ToString(Count) });
+                            //this.tbCount.Invoke(new add_Handler(this.add1), new object[] { Convert.ToString(Count) });
 
                             //this.tbCount.AppendText(Count.ToString());
                         }
-                        this.rtbMsg.Invoke(new add_Handler(this.add), new object[] { msg });
+                        //this.rtbMsg.Invoke(new add_Handler(this.add), new object[] { msg });
                         //this.tbCount.AppendText("0");
                         //tbCount.Text=Count.ToString();
 
@@ -243,7 +251,7 @@ namespace BS
                         //this.tbCount.AppendText("0");
 
                         //this.tbCount.Invoke(new add_Handler(this.add), new object[] { Convert.ToString(Count) });
-                        this.rtbMsg.Invoke(new add_Handler(this.add), new object[] { msg });
+                        //this.rtbMsg.Invoke(new add_Handler(this.add), new object[] { msg });
                     }
 
 
@@ -255,7 +263,7 @@ namespace BS
             catch (Exception ex)
             {
                 //add("网络发生错误");
-                this.rtbMsg.Invoke(new add_Handler(this.add), new object[] { "网络发生错误" + ex.Message });
+                //this.rtbMsg.Invoke(new add_Handler(this.add), new object[] { "网络发生错误" + ex.Message });
             }
         }
 
@@ -297,7 +305,7 @@ namespace BS
             ClientExit();
         }
 
-        private void ClientExit()
+        public void ClientExit()
         {
             if (state == CONNECTED)
             {
@@ -342,35 +350,35 @@ namespace BS
 
         public void autoSend(object sender, EventArgs e, string receiver)
         {
-            timer.Enabled = true;
             timer.Elapsed += (s_,e_)=> send(receiver);
             timer.AutoReset = true;
+            timer.Enabled = true;
         }
 
         public void send(string receiver)
         {
-            byte[] data = new byte[1000];
+            byte[] data = new byte[900];
             try
             {
-                int clientSelected = lstUsers.SelectedItems.Count;
+                //int clientSelected = lstUsers.SelectedItems.Count;
 
-                if (clientSelected != 1)
-                {
+                ////if (clientSelected != 1)
+                //{
 
-                    MessageBox.Show("请在列表中选择一个用户", "提示信息",
-                        MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
-                    return;
-                }
-                else
+                //    MessageBox.Show("请在列表中选择一个用户", "提示信息",
+                //        MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                //    return;
+                //}
+                //else
                 {
                     //此时命令的格式是：
                     //命令标志符（CHAT）|发送者的用户名：发送内容|
                     
                     if (bufferstate == READ)
                     {
-                        string mesg = datatosend(data);
-                        this.bufferstate = WRITE;
-                        this.rtbMsg.AppendText("psyche-->" + receiver + ": " + mesg + "\n");
+                        string mesg = data_to_send(data);
+                        //this.bufferstate = WRITE;
+                        //this.rtbMsg.AppendText("psyche-->" + receiver + ": " + mesg + "\n");
                         // tbSendContent.Text = "";
                         // tbSendContent.Focus();
                         //将字符串转化为字符数组
@@ -378,14 +386,15 @@ namespace BS
                         Stream.Write(outbytes, 0, outbytes.Length);
                     }
                     else
-                        this.rtbMsg.Invoke(new add_Handler(this.add), new object[] { "正在获取数据" });
+                        //this.rtbMsg.Invoke(new add_Handler(this.add), new object[] { "正在获取数据" });
+                    Console.WriteLine("getting data");
 
                 }
             }
         
         catch
             {
-                this.rtbMsg.AppendText("网络发生错误");
+                //this.rtbMsg.AppendText("网络发生错误");
             }
 }
         //public void sendMessage(string recevier)
@@ -431,20 +440,21 @@ namespace BS
         //}
 
         //
-        public string datatosend(byte[] buf)
+        public string data_to_send(byte[] buf)
         {
             if (getdata <= 6)
             {
-                Array.Copy(buf, 0, buffer, index, buf.Length);
-                index = index + 1000;
+                Array.Copy(buffer, index, buf, 0, buf.Length);
+                index = index + 900;
                 getdata++;
             }
             else
             {
                 getdata = 0;
                 index = 0;
+                this.bufferstate = WRITE;
             }
-            return buf.ToString();
+            return System.Text.Encoding.Unicode.GetString(buf);
         }
 
         private void btnStop_Click(object sender, EventArgs e)

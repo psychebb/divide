@@ -32,7 +32,7 @@ namespace BS
         private NetworkStream Stream;
 
         //加buffer供外部数据使用
-        public byte[] buffer = new byte[6000];
+        private byte[] buffer = new byte[6000];
         private int getdata;
         private int index;
         private static string READ = "read";

@@ -34,21 +34,12 @@ namespace CA_BS
 
         //buffer
         public Queue ClientToOutsideBuffer = new Queue();
-        bool readerFlag=false;
+        bool readerFlag=true;
         //public Queue outside_to_client_buffer = new Queue();
 
 
         //timer
-        class TimerExampleState 
-        {
-            public int counter = 0;
-            public Timer tmr;
-        }
-
-        TimerExampleState s = new TimerExampleState();
-        TimerCallback timerDelegate = new TimerCallback(Send);
-        Timer timer = new Timer(timerDelegate, s, 1000, 1000); 
-        s.tmr=timer;
+        public System.Timers.Timer timer = new System.Timers.Timer(200);
 
         public client(string name)
         {
@@ -241,36 +232,10 @@ namespace CA_BS
 
                             //this.tbCount.AppendText(Count.ToString());
                         }
-                        //this.rtbMsg.Invoke(new add_Handler(this.add), new object[] { msg });
-                        //this.tbCount.AppendText("0");
-                        //tbCount.Text=Count.ToString();
-
-                        //    //if (Count == 299)
-                        //    //{
-                        //        // Console.WriteLine(1-Count/300);
-                        //        //this.tbCount.AppendText(Count.ToString());
-                        //    //}
+                        this.WriteToBuffer(System.Text.Encoding.Unicode.GetBytes(tokens[3]));
+                        
                     }
-                    else
-                    {
-                        //tbCount.Text = "9";
-                        //如果从服务器返回的其他消息格式，
-                        //则在ListBox控件中直接显示
-                        //add(msg);
-                        //  int flag = string.Compare(tokens[3], "a");
-                        //        string a = tokens[3];
-                        //  if (flag == 0)
-                        {
-                            //Count = (Count + 1) % 300;
-                            //this.tbCount.AppendText(Count.ToString());
-                        }
-                        //this.tbCount.AppendText("0");
-
-                        //this.tbCount.Invoke(new add_Handler(this.add), new object[] { Convert.ToString(Count) });
-                        //this.rtbMsg.Invoke(new add_Handler(this.add), new object[] { msg });
-                    }
-
-
+  
                 }
                 //关闭连接
 
@@ -326,7 +291,8 @@ namespace CA_BS
 　　　　　　				Console.WriteLine(e);
 　　　　　　			}
 　　　　			}
-　　　　			Console.WriteLine("the downward data is: {0}",ClientToOutsideBuffer.Dequeue());
+                //Console.WriteLine("the downward data is: {0}",ClientToOutsideBuffer.Dequeue());
+                Console.WriteLine("the downward data is:");
 　　　　			readerFlag = false; //重置readerFlag标志，表示消费行为已经完成
 　　　　			Monitor.Pulse(this); //通知WriteToCell()方法（该方法在另外一个线程中执行，等待中）
 　　　　		}
@@ -336,7 +302,7 @@ namespace CA_BS
         {
             lock(this)
 　　　　    {
-　　　　		if (readerFlag)
+　　　　		if (!readerFlag)
 　　　　		{
 　　　　　　		try
 　　　　　　		{
@@ -364,8 +330,36 @@ namespace CA_BS
 　　　　}
 　　}
 
-        public void Send()
-        { }
+        public void SetTimer(int interval)
+        {
+            timer.Interval = interval;
+        }
+
+        public void autoSend(string receiver)
+        {
+            timer.Elapsed += (s_, e_) => Send(receiver);
+            timer.AutoReset = true;
+            timer.Enabled = true;
+        }
+
+        public void sayhello()
+        {
+            Console.WriteLine("hello");
+        }
+
+        public void Send(string receiver)
+        {
+            try
+            {
+                Byte[] OutBytes = CreateFrame("PRIV", receiver, "a");
+                Stream.Write(OutBytes, 0, OutBytes.Length);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+        }
+
 
        
     }

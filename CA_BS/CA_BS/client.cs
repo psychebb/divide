@@ -33,8 +33,8 @@ namespace CA_BS
         private bool stopFlag;
 
         //buffer
-        public Queue ClientToOutsideBuffer = new Queue();
-        bool readerFlag=true;
+        public Queue<byte[]> ClientToOutsideBuffer = new Queue<byte[]>();
+        bool downwardreaderFlag=false;
         //public Queue outside_to_client_buffer = new Queue();
 
 
@@ -229,10 +229,9 @@ namespace CA_BS
                         {
                             Count = (Count + 1) % 300;
                             //this.tbCount.Invoke(new add_Handler(this.add1), new object[] { Convert.ToString(Count) });
-
+                            this.WriteToBuffer(System.Text.Encoding.Unicode.GetBytes(tokens[3]));
                             //this.tbCount.AppendText(Count.ToString());
                         }
-                        this.WriteToBuffer(System.Text.Encoding.Unicode.GetBytes(tokens[3]));
                         
                     }
   
@@ -274,7 +273,8 @@ namespace CA_BS
         public void ReadFromBuffer()
         { 
             lock(this)
-            {if (!readerFlag)//如果现在不可读取
+            {
+                if (!downwardreaderFlag)//如果现在不可读取
 　　　　			{ 
 　　　　　　			try
 　　　　　　			{
@@ -291,9 +291,10 @@ namespace CA_BS
 　　　　　　				Console.WriteLine(e);
 　　　　　　			}
 　　　　			}
-                //Console.WriteLine("the downward data is: {0}",ClientToOutsideBuffer.Dequeue());
-                Console.WriteLine("the downward data is:");
-　　　　			readerFlag = false; //重置readerFlag标志，表示消费行为已经完成
+
+                Console.WriteLine("the downward data is: {0}", System.Text.Encoding.Unicode.GetString(ClientToOutsideBuffer.Dequeue()));
+               // Console.WriteLine("the downward data is:{0}",);
+　　　　			downwardreaderFlag = false; //重置readerFlag标志，表示消费行为已经完成
 　　　　			Monitor.Pulse(this); //通知WriteToCell()方法（该方法在另外一个线程中执行，等待中）
 　　　　		}
 }
@@ -302,7 +303,7 @@ namespace CA_BS
         {
             lock(this)
 　　　　    {
-　　　　		if (!readerFlag)
+　　　　		if (downwardreaderFlag)
 　　　　		{
 　　　　　　		try
 　　　　　　		{
@@ -323,9 +324,9 @@ namespace CA_BS
 	            {
                     ClientToOutsideBuffer.Enqueue(data);
 	            }
-　　　　		else 
-                    Console.WriteLine("the downward data is losing:{0}",ClientToOutsideBuffer.Dequeue());
-　　　　		readerFlag = true; 
+　　　　		else
+                    Console.WriteLine("the downward data is losing:{0}", System.Text.Encoding.Unicode.GetString(ClientToOutsideBuffer.Dequeue()));
+　　　　		downwardreaderFlag = true; 
 　　　　		Monitor.Pulse(this); //通知另外一个线程中正在等待的ReadFromCell()方法
 　　　　}
 　　}
@@ -353,6 +354,7 @@ namespace CA_BS
             {
                 Byte[] OutBytes = CreateFrame("PRIV", receiver, "a");
                 Stream.Write(OutBytes, 0, OutBytes.Length);
+                this.WriteToBuffer(System.Text.Encoding.Unicode.GetBytes("a"));
             }
             catch (Exception ex)
             {

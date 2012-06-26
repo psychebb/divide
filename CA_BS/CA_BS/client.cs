@@ -33,9 +33,10 @@ namespace CA_BS
         private bool stopFlag;
 
         //buffer
-        public Queue<byte[]> ClientToOutsideBuffer = new Queue<byte[]>();
+        public Queue<byte[]> ClientToOutsideBuffer = new Queue<byte[]>();//client端存入接受到的数据，外部程序读取
         bool downwardreaderFlag=false;
-        //public Queue outside_to_client_buffer = new Queue();
+        public Queue<byte[]> OutsideToClientBuffer = new Queue<byte[]>();//外部程序存入需要发送的数据，client端读取
+        bool upwardreaderFlag = false;
 
 
         //timer
@@ -229,7 +230,7 @@ namespace CA_BS
                         {
                             Count = (Count + 1) % 300;
                             //this.tbCount.Invoke(new add_Handler(this.add1), new object[] { Convert.ToString(Count) });
-                            this.WriteToBuffer(System.Text.Encoding.Unicode.GetBytes(tokens[3]));
+                            this.WriteToBuffer_ClientToOutside(System.Text.Encoding.Unicode.GetBytes(tokens[3]));
                             //this.tbCount.AppendText(Count.ToString());
                         }
                         
@@ -270,7 +271,7 @@ namespace CA_BS
             }
         }
 
-        public void ReadFromBuffer()
+        public void ReadFromBuffer_ClientToOutside()
         { 
             lock(this)
             {
@@ -299,7 +300,7 @@ namespace CA_BS
 　　　　		}
 }
     
-        public void WriteToBuffer(byte[] data)
+        public void WriteToBuffer_ClientToOutside(byte[] data)
         {
             lock(this)
 　　　　    {
@@ -331,6 +332,65 @@ namespace CA_BS
 　　　　}
 　　}
 
+        public string ReadFromBuffer_OutsideToClient()
+        {
+            lock (this)
+            {
+                if (!upwardreaderFlag)//如果现在不可读取
+                {
+                    try
+                    {
+                        //等待WriteToCell方法中调用Monitor.Pulse()方法
+                        Monitor.Wait(this);
+                    }
+                    catch (SynchronizationLockException e)
+                    {
+                        Console.WriteLine(e);
+                    }
+
+                    catch (ThreadInterruptedException e)
+                    {
+                        Console.WriteLine(e);
+                    }
+                }
+                upwardreaderFlag = false; //重置readerFlag标志，表示消费行为已经完成
+                Monitor.Pulse(this); //通知WriteToCell()方法（该方法在另外一个线程中执行，等待中）
+                return System.Text.Encoding.Unicode.GetString(OutsideToClientBuffer.Dequeue());
+            }
+        }
+
+        public void WriteToBuffer_OutsideToClient(byte[] data)
+        {
+            lock (this)
+            {
+                if (upwardreaderFlag)
+                {
+                    try
+                    {
+                        Monitor.Wait(this);
+                    }
+                    catch (SynchronizationLockException e)
+                    {
+                        //当同步方法（指Monitor类除Enter之外的方法）在非同步的代码区被调用
+                        Console.WriteLine(e);
+                    }
+                    catch (ThreadInterruptedException e)
+                    {
+                        //当线程在等待状态的时候中止 
+                        Console.WriteLine(e);
+                    }
+                }
+                if (OutsideToClientBuffer.Count < 6)
+                {
+                    OutsideToClientBuffer.Enqueue(data);
+                }
+                else
+                    Console.WriteLine("the OutsideToClientBuffer is full,the first data is losing:{0}", System.Text.Encoding.Unicode.GetString(OutsideToClientBuffer.Dequeue()));
+                upwardreaderFlag = true;
+                Monitor.Pulse(this); //通知另外一个线程中正在等待的ReadFromCell()方法
+            }
+        }
+
         public void SetTimer(int interval)
         {
             timer.Interval = interval;
@@ -352,9 +412,10 @@ namespace CA_BS
         {
             try
             {
-                Byte[] OutBytes = CreateFrame("PRIV", receiver, "a");
+                string data = ReadFromBuffer_OutsideToClient();
+                Byte[] OutBytes = CreateFrame("PRIV", receiver, data);
                 Stream.Write(OutBytes, 0, OutBytes.Length);
-                this.WriteToBuffer(System.Text.Encoding.Unicode.GetBytes("a"));
+                this.WriteToBuffer_ClientToOutside(System.Text.Encoding.Unicode.GetBytes(data));
             }
             catch (Exception ex)
             {

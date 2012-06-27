@@ -7,14 +7,19 @@ using System.Data;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Collections.Generic;
+using System.Timers;
 using server;
 
 namespace server
 {
     delegate void msg_Handle(string msg);
+    
+      
 
     public partial class Form1 : Form
     {
+        public static System.Timers.Timer timer1 = new System.Timers.Timer(100);
         //clients数组保存当前在线用户的Client对象
         internal static Hashtable clients = new Hashtable();
 
@@ -88,7 +93,7 @@ namespace server
 
         private void SocketStart()
         {
-            int port = 3333;
+            int port = 4444;
             string ip = "127.0.0.1";
             try
             {
@@ -142,6 +147,8 @@ namespace server
                             Thread clientService = new Thread(
                                 new ThreadStart(client.ServiceClient));
                             clientService.Start();
+                            AutoRead(client);
+                            //client.ReadFromBuffer_ServerToOutside();
                         }
                     }
                     Thread.Sleep(200);//主线程休息200ms
@@ -152,6 +159,13 @@ namespace server
                     this.rtbSocketMsg.Invoke(msg_Handle2, new object[] { ex.Message.ToString() + "\n" });
                 }
             }
+        }
+
+        private void AutoRead(Client client)
+        {
+            timer1.Elapsed += (s_, e_) => client.ReadFromBuffer_ServerToOutside();
+            timer1.AutoReset = true;
+            timer1.Enabled = true;
         }
 
         private void btnSocketStop_Click(object sender, System.EventArgs e)
@@ -215,6 +229,7 @@ namespace server
             Form1.SocketServiceFlag = false;
         }
 
+
         
     }
 
@@ -226,10 +241,10 @@ namespace server
         private Form1 server;
         
         //缓存供外部数据读取
-        private int getdata;
-        private byte[] buffer = new byte[6144];
-        private int offset;
+        public Queue<byte[]> ServerToOutsideBuffer = new Queue<byte[]>();//client端存入接受到的数据，外部程序读取
+        bool readerFlag = false;
 
+        public Queue<byte[]> Buffer = new Queue<byte[]>();
 
         //保留当前连接的状态：
         //closed --> connected --> closed
@@ -412,9 +427,9 @@ namespace server
                         //tokens[3]中保存了发送的内容
                         string content = tokens[3];
                         string msg = System.Text.Encoding.Unicode.GetString(CreateFrame("PRIV", tokens[1], tokens[2], tokens[3]));
-
-
-
+                        //将发送信息存入缓存中，格式为“sender to receiver：message”
+                        WriteToBuffer_ServerToOutside(System.Text.Encoding.Unicode.GetBytes(tokens[1] + " to " + tokens[2] + " : " + tokens[3]));
+                       
                         //仅将信息转发给发送者和接收者
                         if (Form1.clients.Contains(sender))
                         {
@@ -430,7 +445,7 @@ namespace server
                                 (Client)Form1.clients[receiver], msg);
                         }
 
-                        instoredatatobuffer(buff);
+                        
                     }
                     else
                     {
@@ -476,24 +491,69 @@ namespace server
                     //退出当前线程
                     break;
                 }
-                Thread.Sleep(200);
+               Thread.Sleep(100);
             }
         }
-        
-        //把数据存入缓存 供外部调用
-        public void instoredatatobuffer(byte[] buf)
+
+        public void ReadFromBuffer_ServerToOutside()
         {
-            if (getdata <= 6)
+            lock (this)
             {
-                buf.CopyTo(buffer, offset);
-                offset = offset + 1024;
-                getdata++;
-                
+                if (!readerFlag)//如果现在不可读取
+                {
+                    try
+                    {
+                        //等待WriteToCell方法中调用Monitor.Pulse()方法
+                        Monitor.Wait(this);
+                    }
+                    catch (SynchronizationLockException e)
+                    {
+                        this.server.rtbSocketMsg.AppendText(e.Message);
+                    }
+
+                    catch (ThreadInterruptedException e)
+                    {
+                        this.server.rtbSocketMsg.AppendText(e.Message);
+                    }
+                }
+                Buffer.Enqueue(ServerToOutsideBuffer.Dequeue());
+                //Console.WriteLine("the message is: {0}", System.Text.Encoding.Unicode.GetString(ServerToOutsideBuffer.Dequeue()));
+                // Console.WriteLine("the downward data is:{0}",);
+                readerFlag = false; //重置readerFlag标志，表示消费行为已经完成
+                Monitor.Pulse(this); //通知WriteToCell()方法（该方法在另外一个线程中执行，等待中）
             }
-            else
+        }
+
+        public void WriteToBuffer_ServerToOutside(byte[] data)
+        {
+            lock (this)
             {
-                getdata = 0;
-                offset = 0;
+                if (readerFlag)
+                {
+                    try
+                    {
+                        Monitor.Wait(this);
+                    }
+                    catch (SynchronizationLockException e)
+                    {
+                        //当同步方法（指Monitor类除Enter之外的方法）在非同步的代码区被调用
+                        this.server.rtbSocketMsg.AppendText(e.Message);
+                    }
+                    catch (ThreadInterruptedException e)
+                    {
+                        //当线程在等待状态的时候中止 
+                        this.server.rtbSocketMsg.AppendText(e.Message);
+                    }
+                }
+                if (ServerToOutsideBuffer.Count < 6)
+                {
+                    ServerToOutsideBuffer.Enqueue(data);
+                }
+                else
+                    this.server.rtbSocketMsg.AppendText("the message is losing: "+System.Text.Encoding.Unicode.GetString(ServerToOutsideBuffer.Dequeue()));
+                    //Console.WriteLine("the message is losing:{0}", System.Text.Encoding.Unicode.GetString(ServerToOutsideBuffer.Dequeue()));
+                readerFlag = true;
+                Monitor.Pulse(this); //通知另外一个线程中正在等待的ReadFromCell()方法
             }
         }
 

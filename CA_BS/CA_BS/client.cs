@@ -40,7 +40,7 @@ namespace CA_BS
 
 
         //timer
-        public System.Timers.Timer timer = new System.Timers.Timer(200);
+        public System.Timers.Timer timer = new System.Timers.Timer(100);
 
         public client(string name)
         {
@@ -86,7 +86,7 @@ namespace CA_BS
                 //将被传递给ChatClient窗体
                 tcpClient = new TcpClient();
                 //向指定的IP地址的服务器发出连接请求
-                tcpClient.Connect(IPAddress.Parse("127.0.0.1"),
+                tcpClient.Connect(IPAddress.Parse("219.245.71.34"),
                     Int32.Parse("1234"));
                 //获得与服务器数据交互的流通道（NetworkStream)
                 Stream = tcpClient.GetStream();
@@ -225,14 +225,14 @@ namespace CA_BS
 
                     else if (tokens[0] == "PRIV")
                     {
-                        int flag = string.Compare(tokens[3], "a");
-                        if (flag == 0)
-                        {
-                            Count = (Count + 1) % 300;
+                        //int flag = string.Compare(tokens[3], "a");
+                        //if (flag == 0)
+                        //{
+                        //    Count = (Count + 1) % 300;
                             //this.tbCount.Invoke(new add_Handler(this.add1), new object[] { Convert.ToString(Count) });
                             this.WriteToBuffer_ClientToOutside(System.Text.Encoding.Unicode.GetBytes(tokens[3]));
                             //this.tbCount.AppendText(Count.ToString());
-                        }
+                        //}
                         
                     }
   
@@ -271,35 +271,6 @@ namespace CA_BS
             }
         }
 
-        public void ReadFromBuffer_ClientToOutside()
-        { 
-            lock(this)
-            {
-                if (!downwardreaderFlag)//如果现在不可读取
-　　　　			{ 
-　　　　　　			try
-　　　　　　			{
-　　　　　　				//等待WriteToCell方法中调用Monitor.Pulse()方法
-　　　　　　				Monitor.Wait(this);
-　　　　　　			}
-　　　　　　			catch (SynchronizationLockException e)
-　　　　　　			{
-　　　　　　				Console.WriteLine(e);
-　　　　　　			}
-
-　　　　　　			catch (ThreadInterruptedException e)
-　　　　　　			{
-　　　　　　				Console.WriteLine(e);
-　　　　　　			}
-　　　　			}
-
-                Console.WriteLine("the downward data is: {0}", System.Text.Encoding.Unicode.GetString(ClientToOutsideBuffer.Dequeue()));
-               // Console.WriteLine("the downward data is:{0}",);
-　　　　			downwardreaderFlag = false; //重置readerFlag标志，表示消费行为已经完成
-　　　　			Monitor.Pulse(this); //通知WriteToCell()方法（该方法在另外一个线程中执行，等待中）
-　　　　		}
-}
-    
         public void WriteToBuffer_ClientToOutside(byte[] data)
         {
             lock(this)
@@ -326,12 +297,43 @@ namespace CA_BS
                     ClientToOutsideBuffer.Enqueue(data);
 	            }
 　　　　		else
-                    Console.WriteLine("the downward data is losing:{0}", System.Text.Encoding.Unicode.GetString(ClientToOutsideBuffer.Dequeue()));
+                    Console.WriteLine("the re-allocated data is overflowing:{0}", System.Text.Encoding.Unicode.GetString(ClientToOutsideBuffer.Dequeue()));
 　　　　		downwardreaderFlag = true; 
 　　　　		Monitor.Pulse(this); //通知另外一个线程中正在等待的ReadFromCell()方法
 　　　　}
 　　}
 
+        public void ReadFromBuffer_ClientToOutside()
+        { 
+            lock(this)
+            {
+                if (!downwardreaderFlag)//如果现在不可读取
+　　　　			{ 
+　　　　　　			try
+　　　　　　			{
+　　　　　　				//等待WriteToCell方法中调用Monitor.Pulse()方法
+　　　　　　				Monitor.Wait(this);
+　　　　　　			}
+　　　　　　			catch (SynchronizationLockException e)
+　　　　　　			{
+　　　　　　				Console.WriteLine(e);
+　　　　　　			}
+
+　　　　　　			catch (ThreadInterruptedException e)
+　　　　　　			{
+　　　　　　				Console.WriteLine(e);
+　　　　　　			}
+　　　　			}
+                //if (ClientToOutsideBuffer != null)
+                    Console.WriteLine("the re-allocated data is: {0}", System.Text.Encoding.Unicode.GetString(ClientToOutsideBuffer.Dequeue()));
+                //else
+                    //Console.WriteLine("the ClientToOutsideBuffer is empty, you cannot read anything from the client.");
+               // Console.WriteLine("the downward data is:{0}",);
+　　　　			downwardreaderFlag = false; //重置readerFlag标志，表示消费行为已经完成
+　　　　			Monitor.Pulse(this); //通知WriteToCell()方法（该方法在另外一个线程中执行，等待中）
+　　　　		}
+}
+    
         public string ReadFromBuffer_OutsideToClient()
         {
             lock (this)
@@ -385,7 +387,7 @@ namespace CA_BS
                     OutsideToClientBuffer.Enqueue(data);
                 }
                 else
-                    Console.WriteLine("the OutsideToClientBuffer is full,the first data is losing:{0}", System.Text.Encoding.Unicode.GetString(OutsideToClientBuffer.Dequeue()));
+                    Console.WriteLine("the untreated data is overflowing:{0}", System.Text.Encoding.Unicode.GetString(OutsideToClientBuffer.Dequeue()));
                 upwardreaderFlag = true;
                 Monitor.Pulse(this); //通知另外一个线程中正在等待的ReadFromCell()方法
             }
@@ -415,7 +417,6 @@ namespace CA_BS
                 string data = ReadFromBuffer_OutsideToClient();
                 Byte[] OutBytes = CreateFrame("PRIV", receiver, data);
                 Stream.Write(OutBytes, 0, OutBytes.Length);
-                this.WriteToBuffer_ClientToOutside(System.Text.Encoding.Unicode.GetBytes(data));
             }
             catch (Exception ex)
             {
